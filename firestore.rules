@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────
+// Règles de sécurité Firestore — Outsourcing Support CRM
+// ─────────────────────────────────────────────────────────────────────────
+// La protection contre les accès extérieurs est assurée par APP CHECK, activé
+// au niveau de l'API via le bouton « Appliquer / Enforce » dans la console :
+//   Console Firebase > App Check > APIs > Cloud Firestore > Appliquer.
+// Seules les requêtes portant un jeton App Check valide (donc émises par cette
+// application) sont alors acceptées par Firestore.
+//
+// L'application utilise une authentification "maison" par code PIN (pas Firebase
+// Auth) : ces règles ne peuvent donc pas distinguer les utilisateurs entre eux.
+// C'est volontaire — App Check bloque l'accès externe, ce qui est le niveau de
+// protection visé pour cet outil interne.
+//
+// NB : on n'utilise PAS `request.app != null` ici car cette vérification dans les
+// règles bloque parfois des requêtes légitimes selon le transport du SDK.
+// L'enforcement côté API est la méthode fiable.
+// ─────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
