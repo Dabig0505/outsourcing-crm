@@ -1,9 +1,10 @@
 // Section "Historique" : toutes les interventions, avec filtres (technicien, client,
 // statut, période) + consultation détaillée + génération du PDF de la fiche.
 import { useEffect, useMemo, useState } from "react";
-import { listAllInterventions } from "../../services/interventions";
+import { listAllInterventions, createIntervention } from "../../services/interventions";
 import { listClients } from "../../services/clients";
 import { listTechnicians } from "../../services/technicians";
+import { listTaskTemplates } from "../../services/taskTemplates";
 import { getEntreprise } from "../../services/config";
 import { formatDateFR } from "../../utils/recurrence";
 import { generateInterventionPDF } from "../../utils/pdf";
@@ -11,7 +12,7 @@ import { useToast } from "../../context/ToastContext";
 import PageHeader from "../../components/admin/PageHeader";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
-import { inputClass } from "../../components/ui/Field";
+import Field, { inputClass } from "../../components/ui/Field";
 
 export default function HistoryPage() {
   const toast = useToast();
@@ -25,26 +26,36 @@ export default function HistoryPage() {
     to: "",
   });
   const [viewing, setViewing] = useState(null);
+  const [ponctuelleOpen, setPonctuelleOpen] = useState(false);
+
+  async function refresh() {
+    try {
+      const [items, clients, technicians, templates, ent] = await Promise.all([
+        listAllInterventions(),
+        listClients(),
+        listTechnicians(),
+        listTaskTemplates(),
+        getEntreprise(),
+      ]);
+      const byId = (arr) => Object.fromEntries(arr.map((x) => [x.id, x]));
+      setData({
+        items,
+        clients: byId(clients),
+        technicians: byId(technicians),
+        techList: technicians,
+        cliList: clients,
+        tplList: templates,
+      });
+      setEntreprise(ent);
+    } catch (e) {
+      console.error(e);
+      toast.error("Impossible de charger l'historique.");
+      setData({ items: [], clients: {}, technicians: {}, techList: [], cliList: [], tplList: [] });
+    }
+  }
 
   useEffect(() => {
-    async function load() {
-      try {
-        const [items, clients, technicians, ent] = await Promise.all([
-          listAllInterventions(),
-          listClients(),
-          listTechnicians(),
-          getEntreprise(),
-        ]);
-        const byId = (arr) => Object.fromEntries(arr.map((x) => [x.id, x]));
-        setData({ items, clients: byId(clients), technicians: byId(technicians), techList: technicians, cliList: clients });
-        setEntreprise(ent);
-      } catch (e) {
-        console.error(e);
-        toast.error("Impossible de charger l'historique.");
-        setData({ items: [], clients: {}, technicians: {}, techList: [], cliList: [] });
-      }
-    }
-    load();
+    refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -95,7 +106,9 @@ export default function HistoryPage() {
 
   return (
     <>
-      <PageHeader title="Historique" subtitle="Toutes les interventions planifiées et réalisées." />
+      <PageHeader title="Historique" subtitle="Toutes les interventions planifiées et réalisées.">
+        <Button onClick={() => setPonctuelleOpen(true)}>+ Intervention ponctuelle</Button>
+      </PageHeader>
 
       <div className="p-8">
         {data === null ? (
@@ -203,7 +216,113 @@ export default function HistoryPage() {
           />
         )}
       </Modal>
+
+      {/* Création d'une intervention ponctuelle (hors contrat) */}
+      {ponctuelleOpen && data && (
+        <PonctuelleForm
+          clients={data.cliList.filter((c) => c.actif !== false)}
+          technicians={data.techList.filter((t) => t.actif !== false)}
+          templates={data.tplList.filter((t) => t.actif !== false)}
+          onClose={() => setPonctuelleOpen(false)}
+          onSaved={() => {
+            setPonctuelleOpen(false);
+            refresh();
+          }}
+        />
+      )}
     </>
+  );
+}
+
+// Formulaire de création d'une intervention ponctuelle (source "ponctuel").
+function PonctuelleForm({ clients, technicians, templates, onClose, onSaved }) {
+  const toast = useToast();
+  const [form, setForm] = useState({
+    clientId: "",
+    date: "",
+    technicianId: "",
+    taskTemplateId: "",
+  });
+  const [errors, setErrors] = useState({});
+  const [busy, setBusy] = useState(false);
+
+  function set(key, value) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const errs = {};
+    if (!form.clientId) errs.clientId = "Sélectionnez un client.";
+    if (!form.date) errs.date = "Choisissez une date.";
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
+
+    setBusy(true);
+    try {
+      await createIntervention({
+        clientId: form.clientId,
+        date: form.date,
+        technicianId: form.technicianId || null,
+        taskTemplateId: form.taskTemplateId || null,
+        statut: "a_faire",
+        source: "ponctuel",
+        contractId: null,
+      });
+      toast.success("Intervention ponctuelle créée.");
+      onSaved();
+    } catch (err) {
+      console.error(err);
+      toast.error("Création impossible.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Nouvelle intervention ponctuelle">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Field label="Client" required error={errors.clientId}>
+          <select className={inputClass} value={form.clientId} onChange={(e) => set("clientId", e.target.value)}>
+            <option value="">— Sélectionnez —</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>{c.nom}</option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Date" required error={errors.date}>
+          <input type="date" className={inputClass} value={form.date} onChange={(e) => set("date", e.target.value)} />
+        </Field>
+
+        <Field
+          label="Technicien titulaire"
+          hint="Optionnel — indicatif. N'importe quel technicien pourra prendre l'intervention."
+        >
+          <select className={inputClass} value={form.technicianId} onChange={(e) => set("technicianId", e.target.value)}>
+            <option value="">— Aucun (non défini) —</option>
+            {technicians.map((t) => (
+              <option key={t.id} value={t.id}>{t.nom}</option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Modèle de tâches" hint="Optionnel — pré-rempli sur la fiche, modifiable par le technicien.">
+          <select className={inputClass} value={form.taskTemplateId} onChange={(e) => set("taskTemplateId", e.target.value)}>
+            <option value="">— Aucun —</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>{t.nom}</option>
+            ))}
+          </select>
+        </Field>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose} disabled={busy}>Annuler</Button>
+          <Button type="submit" disabled={busy}>
+            {busy ? "Création…" : "Créer l'intervention"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
