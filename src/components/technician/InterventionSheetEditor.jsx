@@ -1,95 +1,50 @@
 // Corps réutilisable d'une fiche d'intervention à remplir (mobile-first) :
-// choix du modèle, tâches cochables avec détail, tâches libres, commentaire,
-// et barre de soumission fixe. Utilisé par :
-//   - InterventionForm  (remplir une intervention existante "à faire")
-//   - NewInterventionForm (créer + remplir une intervention immédiate, côté technicien)
+//   - Type d'intervention (catégorie, reprend les noms des modèles existants)
+//   - Mode d'intervention (Sur site / À distance) — OBLIGATOIRE
+//   - Description de l'intervention (texte libre, multiligne)
+// Utilisé par InterventionForm (remplir une intervention existante) et
+// NewInterventionForm (créer + remplir une intervention immédiate).
 //
-// Le composant gère l'état de saisie ; le PARENT décide quoi faire à la soumission
-// via onSubmit({ taskTemplateId, tasksDone, commentaireBrut }).
+// Le composant gère l'état de saisie ; le PARENT décide quoi faire à la
+// soumission via onSubmit({ type, mode, description }).
 import { useMemo, useState } from "react";
 import { useToast } from "../../context/ToastContext";
-
-// Construit les lignes de tâches à partir d'un modèle (toutes décochées au départ).
-export function buildRows(template) {
-  return (template?.tasks || []).map((tache) => ({ tache, checked: false, detail: "" }));
-}
+import { MODES } from "../../utils/intervention";
 
 export default function InterventionSheetEditor({
-  templates = [],
-  initialTemplateId = "",
-  initialComment = "",
-  beforeTemplate = null, // contenu injecté en haut (ex : client + date pour la création)
+  templates = [], // sert à proposer les catégories (noms des modèles)
+  initialType = "",
+  initialMode = "",
+  initialDescription = "",
+  beforeFields = null, // contenu injecté en haut (ex : client + date pour la création)
   submitLabel = "Soumettre l'intervention",
   validate, // optionnel : () => message d'erreur | null, vérifié avant la soumission
-  onSubmit, // async ({ taskTemplateId, tasksDone, commentaireBrut })
+  onSubmit, // async ({ type, mode, description })
 }) {
   const toast = useToast();
-  const templatesById = useMemo(
-    () => Object.fromEntries(templates.map((t) => [t.id, t])),
-    [templates]
-  );
-
-  const [selectedTemplateId, setSelectedTemplateId] = useState(initialTemplateId);
-  const [templateTasks, setTemplateTasks] = useState(() =>
-    buildRows(templatesById[initialTemplateId])
-  );
-  const [freeTasks, setFreeTasks] = useState([]); // [{tache, detail}]
-  const [comment, setComment] = useState(initialComment);
+  const [type, setType] = useState(initialType);
+  const [mode, setMode] = useState(initialMode);
+  const [description, setDescription] = useState(initialDescription);
   const [submitting, setSubmitting] = useState(false);
 
-  // Modèles proposés : actifs + éventuellement celui déjà sélectionné (même archivé).
-  const templateOptions = useMemo(
-    () => templates.filter((t) => t.actif !== false || t.id === selectedTemplateId),
-    [templates, selectedTemplateId]
-  );
-
-  function onChangeTemplate(newId) {
-    setSelectedTemplateId(newId);
-    setTemplateTasks(buildRows(templatesById[newId]));
-  }
-  function toggleTask(i) {
-    setTemplateTasks((rows) => rows.map((r, idx) => (idx === i ? { ...r, checked: !r.checked } : r)));
-  }
-  function setTaskDetail(i, detail) {
-    setTemplateTasks((rows) => rows.map((r, idx) => (idx === i ? { ...r, detail } : r)));
-  }
-  function addFreeTask() {
-    setFreeTasks((list) => [...list, { tache: "", detail: "" }]);
-  }
-  function setFree(i, key, value) {
-    setFreeTasks((list) => list.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
-  }
-  function removeFree(i) {
-    setFreeTasks((list) => list.filter((_, idx) => idx !== i));
-  }
+  // Catégories proposées = noms des modèles actifs (+ la valeur initiale si absente).
+  const categories = useMemo(() => {
+    const names = templates.filter((t) => t.actif !== false).map((t) => t.nom);
+    if (initialType && !names.includes(initialType)) names.unshift(initialType);
+    return Array.from(new Set(names));
+  }, [templates, initialType]);
 
   async function handleSubmit() {
-    // Validation propre au parent (ex : client requis pour une création).
     if (validate) {
       const err = validate();
       if (err) return toast.error(err);
     }
-
-    const tasksDone = [
-      ...templateTasks
-        .filter((r) => r.checked)
-        .map((r) => ({ tache: r.tache, detail: (r.detail || "").trim() })),
-      ...freeTasks
-        .filter((r) => r.tache.trim())
-        .map((r) => ({ tache: r.tache.trim(), detail: (r.detail || "").trim() })),
-    ];
-
-    if (tasksDone.length === 0 && !comment.trim()) {
-      return toast.error("Cochez au moins une tâche ou ajoutez un commentaire.");
-    }
+    if (!mode) return toast.error("Choisissez le mode d'intervention.");
+    if (!description.trim()) return toast.error("Décrivez l'intervention.");
 
     setSubmitting(true);
     try {
-      await onSubmit({
-        taskTemplateId: selectedTemplateId || null,
-        tasksDone,
-        commentaireBrut: comment,
-      });
+      await onSubmit({ type, mode, description: description.trim() });
       // Succès : le parent gère la navigation / le message.
     } catch (e) {
       console.error(e);
@@ -101,110 +56,61 @@ export default function InterventionSheetEditor({
   return (
     <>
       <div className="mx-auto max-w-md space-y-5 p-4">
-        {beforeTemplate}
+        {beforeFields}
 
-        {/* Choix du modèle */}
+        {/* Type d'intervention */}
         <section className="rounded-2xl bg-white p-4 shadow-sm">
           <label className="mb-1 block text-sm font-medium text-slate-700">
-            Modèle de tâches
+            Type d'intervention
           </label>
           <select
-            value={selectedTemplateId}
-            onChange={(e) => onChangeTemplate(e.target.value)}
+            value={type}
+            onChange={(e) => setType(e.target.value)}
             className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-800 focus:border-slate-500 focus:outline-none"
           >
-            <option value="">— Aucun modèle —</option>
-            {templateOptions.map((t) => (
-              <option key={t.id} value={t.id}>{t.nom}</option>
+            <option value="">— Choisir —</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>{c}</option>
             ))}
           </select>
         </section>
 
-        {/* Tâches du modèle */}
-        {templateTasks.length > 0 && (
-          <section className="rounded-2xl bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-sm font-semibold text-slate-700">Tâches</h2>
-            <ul className="space-y-3">
-              {templateTasks.map((row, i) => (
-                <li key={i} className="rounded-xl border border-slate-100 p-1">
-                  <label className="flex cursor-pointer items-start gap-3 p-2">
-                    <input
-                      type="checkbox"
-                      checked={row.checked}
-                      onChange={() => toggleTask(i)}
-                      className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300 accent-slate-800"
-                    />
-                    <span className="text-slate-800">{row.tache}</span>
-                  </label>
-                  {row.checked && (
-                    <input
-                      value={row.detail}
-                      onChange={(e) => setTaskDetail(i, e.target.value)}
-                      placeholder="Détail (optionnel)…"
-                      className="mt-1 ml-10 w-[calc(100%-2.5rem)] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none"
-                    />
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {/* Tâches libres */}
+        {/* Mode d'intervention (obligatoire) */}
         <section className="rounded-2xl bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold text-slate-700">Tâches supplémentaires</h2>
-          {freeTasks.length === 0 && (
-            <p className="mb-3 text-sm text-slate-400">
-              Ajoutez une tâche non prévue dans le modèle, si besoin.
-            </p>
-          )}
-          <ul className="space-y-3">
-            {freeTasks.map((row, i) => (
-              <li key={i} className="rounded-xl border border-slate-100 p-3">
-                <div className="flex items-center gap-2">
-                  <input
-                    value={row.tache}
-                    onChange={(e) => setFree(i, "tache", e.target.value)}
-                    placeholder="Tâche réalisée"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-800 focus:border-slate-500 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeFree(i)}
-                    className="shrink-0 rounded-md p-2 text-slate-400 active:bg-slate-100"
-                    aria-label="Supprimer"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <input
-                  value={row.detail}
-                  onChange={(e) => setFree(i, "detail", e.target.value)}
-                  placeholder="Détail (optionnel)…"
-                  className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none"
-                />
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            onClick={addFreeTask}
-            className="mt-3 text-sm font-medium text-slate-600 active:text-slate-800"
-          >
-            + Ajouter une tâche
-          </button>
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Mode d'intervention <span className="text-red-500">*</span>
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {MODES.map((m) => {
+              const active = mode === m.value;
+              return (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setMode(m.value)}
+                  className={`rounded-lg border py-3 text-sm font-semibold transition ${
+                    active
+                      ? "border-slate-800 bg-slate-800 text-white"
+                      : "border-slate-300 bg-white text-slate-600 active:bg-slate-50"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
         </section>
 
-        {/* Commentaire global */}
+        {/* Description de l'intervention */}
         <section className="rounded-2xl bg-white p-4 shadow-sm">
           <label className="mb-1 block text-sm font-medium text-slate-700">
-            Commentaire général
+            Description de l'intervention <span className="text-red-500">*</span>
           </label>
           <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            rows={4}
-            placeholder="Remarques, observations…"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={8}
+            placeholder="Décrivez ce qui a été fait (constat, actions réalisées, pièces changées, recommandations…)."
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-800 focus:border-slate-500 focus:outline-none"
           />
         </section>

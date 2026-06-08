@@ -3,6 +3,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatDateFR } from "./recurrence";
+import { isNewFormat, modeLabel } from "./intervention";
 
 // Charge le logo (public/logo.png) et le convertit en base64 via un canvas.
 // Fiable en production (même origine que l'app, pas de Firebase Storage requis).
@@ -101,14 +102,20 @@ export async function generateInterventionPDF({
   y += 24;
 
   // ── Bloc d'informations ──
+  const nouveau = isNewFormat(intervention);
   doc.setFontSize(10);
   const info = [
     ["Client", client?.nom || "—"],
     ["Adresse", client?.adresse || "—"],
     ["Date", formatDateFR(intervention.date) || "—"],
-    ["Technicien", technicien?.nom || titulaire?.nom || "—"],
-    ["Statut", intervention.statut === "fait" ? "Réalisée" : "À faire"],
   ];
+  if (nouveau) {
+    if (intervention.type) info.push(["Type", intervention.type]);
+    info.push(["Mode", modeLabel(intervention.mode) || "—"]);
+  }
+  info.push(["Technicien", technicien?.nom || titulaire?.nom || "—"]);
+  info.push(["Statut", intervention.statut === "fait" ? "Réalisée" : "À faire"]);
+
   info.forEach(([k, v]) => {
     doc.setFont("helvetica", "bold");
     doc.text(`${k} :`, margin, y);
@@ -118,30 +125,43 @@ export async function generateInterventionPDF({
   });
   y += 8;
 
-  // ── Tableau des tâches réalisées ──
-  const rows = (intervention.tasksDone || []).map((t) => [t.tache, t.detail || ""]);
-  autoTable(doc, {
-    startY: y,
-    head: [["Tâche réalisée", "Détail"]],
-    body: rows.length ? rows : [["Aucune tâche renseignée", ""]],
-    margin: { left: margin, right: margin },
-    styles: { fontSize: 10, cellPadding: 6, valign: "top" },
-    headStyles: { fillColor: [30, 41, 59] },
-    columnStyles: { 0: { cellWidth: 250 } },
-  });
-  y = doc.lastAutoTable.finalY + 22;
-
-  // ── Commentaire général ──
-  if (intervention.commentaireBrut) {
+  if (nouveau) {
+    // ── NOUVEAU format : description (texte libre) ──
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
-    doc.text("Commentaire", margin, y);
+    doc.text("Description de l'intervention", margin, y);
     y += 16;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    const lines = doc.splitTextToSize(intervention.commentaireBrut, pageWidth - margin * 2);
+    const txt = intervention.description || intervention.commentaireBrut || "—";
+    const lines = doc.splitTextToSize(txt, pageWidth - margin * 2);
     doc.text(lines, margin, y);
     y += lines.length * 13 + 12;
+  } else {
+    // ── ANCIEN format : tableau des tâches + commentaire ──
+    const rows = (intervention.tasksDone || []).map((t) => [t.tache, t.detail || ""]);
+    autoTable(doc, {
+      startY: y,
+      head: [["Tâche réalisée", "Détail"]],
+      body: rows.length ? rows : [["Aucune tâche renseignée", ""]],
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 10, cellPadding: 6, valign: "top" },
+      headStyles: { fillColor: [30, 41, 59] },
+      columnStyles: { 0: { cellWidth: 250 } },
+    });
+    y = doc.lastAutoTable.finalY + 22;
+
+    if (intervention.commentaireBrut) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("Commentaire", margin, y);
+      y += 16;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      const lines = doc.splitTextToSize(intervention.commentaireBrut, pageWidth - margin * 2);
+      doc.text(lines, margin, y);
+      y += lines.length * 13 + 12;
+    }
   }
 
   // ── Pied : traçabilité de la soumission ──

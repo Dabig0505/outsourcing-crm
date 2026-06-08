@@ -1,6 +1,6 @@
 // Fiche d'intervention (mobile-first) — remplir une intervention EXISTANTE.
 // Mode "à faire"  : le technicien remplit et soumet (via le composant partagé).
-// Mode "fait"     : affichage en lecture seule (consultation depuis "Passées").
+// Mode "fait"     : affichage en lecture seule (gère ancien et nouveau format).
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getIntervention, submitIntervention } from "../../services/interventions";
@@ -11,6 +11,7 @@ import { formatDateFR } from "../../utils/recurrence";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import InterventionSheetEditor from "../../components/technician/InterventionSheetEditor";
+import InterventionBody from "../../components/InterventionBody";
 
 export default function InterventionForm() {
   const { id } = useParams();
@@ -23,6 +24,7 @@ export default function InterventionForm() {
   const [client, setClient] = useState(null);
   const [titulaire, setTitulaire] = useState(null);
   const [templates, setTemplates] = useState([]);
+  const [suggestedType, setSuggestedType] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -41,6 +43,9 @@ export default function InterventionForm() {
         setClient(cli);
         setTitulaire(tit);
         setTemplates(allTemplates);
+        // Catégorie suggérée = nom du modèle associé au contrat (le cas échéant).
+        const suggested = allTemplates.find((t) => t.id === it.taskTemplateId);
+        setSuggestedType(suggested?.nom || "");
       } catch (e) {
         console.error(e);
         toast.error("Erreur de chargement.");
@@ -52,11 +57,11 @@ export default function InterventionForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  async function handleSubmit({ taskTemplateId, tasksDone, commentaireBrut }) {
+  async function handleSubmit({ type, mode, description }) {
     await submitIntervention(id, {
-      taskTemplateId,
-      tasksDone,
-      commentaireBrut,
+      type,
+      mode,
+      description,
       submittedBy: session.technicianId,
     });
     toast.success("Intervention soumise.");
@@ -87,49 +92,18 @@ export default function InterventionForm() {
       </header>
 
       {isDone ? (
-        <ReadOnlyView intervention={intervention} />
+        <div className="mx-auto max-w-md p-4">
+          <div className="rounded-2xl bg-white p-4 shadow-sm">
+            <InterventionBody intervention={intervention} />
+          </div>
+        </div>
       ) : (
         <InterventionSheetEditor
           templates={templates}
-          initialTemplateId={intervention.taskTemplateId || ""}
-          initialComment={intervention.commentaireBrut || ""}
+          initialType={suggestedType}
           submitLabel="Soumettre l'intervention"
           onSubmit={handleSubmit}
         />
-      )}
-    </div>
-  );
-}
-
-// Vue lecture seule d'une intervention déjà soumise.
-function ReadOnlyView({ intervention }) {
-  const tasks = intervention.tasksDone || [];
-  return (
-    <div className="mx-auto max-w-md space-y-5 p-4">
-      <section className="rounded-2xl bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">Tâches réalisées</h2>
-        {tasks.length === 0 ? (
-          <p className="text-sm text-slate-400">Aucune tâche renseignée.</p>
-        ) : (
-          <ul className="space-y-2">
-            {tasks.map((t, i) => (
-              <li key={i} className="flex gap-2 text-slate-800">
-                <span className="text-emerald-600">✓</span>
-                <div>
-                  <div>{t.tache}</div>
-                  {t.detail && <div className="text-sm text-slate-500">{t.detail}</div>}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {intervention.commentaireBrut && (
-        <section className="rounded-2xl bg-white p-4 shadow-sm">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Commentaire</h2>
-          <p className="whitespace-pre-wrap text-slate-700">{intervention.commentaireBrut}</p>
-        </section>
       )}
     </div>
   );

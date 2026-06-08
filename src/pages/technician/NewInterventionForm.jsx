@@ -46,13 +46,13 @@ export default function NewInterventionForm() {
     return null;
   }
 
-  async function handleSubmit({ taskTemplateId, tasksDone, commentaireBrut }) {
+  async function handleSubmit({ type, mode, description }) {
     await createCompletedIntervention({
       clientId,
       date,
-      taskTemplateId,
-      tasksDone,
-      commentaireBrut,
+      type,
+      mode,
+      description,
       submittedBy: session.technicianId,
     });
     toast.success("Intervention enregistrée.");
@@ -81,7 +81,7 @@ export default function NewInterventionForm() {
         submitLabel="Enregistrer l'intervention"
         validate={validate}
         onSubmit={handleSubmit}
-        beforeTemplate={
+        beforeFields={
           <section className="space-y-4 rounded-2xl bg-white p-4 shadow-sm">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">

@@ -50,15 +50,15 @@ export async function listPastByTechnician(technicianId) {
 }
 
 // Soumission d'une fiche : passe au statut "fait" + horodatage + auteur réel.
-export async function submitIntervention(
-  id,
-  { taskTemplateId, tasksDone, commentaireBrut, submittedBy }
-) {
+// Nouveau format : type (catégorie), mode ("sur_site"/"a_distance"), description.
+export async function submitIntervention(id, { type, mode, description, submittedBy }) {
   await updateDoc(doc(db, COLLECTIONS.interventions, id), {
     statut: "fait",
-    taskTemplateId: taskTemplateId || null,
-    tasksDone, // [{ tache, detail }]
-    commentaireBrut: commentaireBrut || "",
+    type: type || "",
+    mode, // "sur_site" | "a_distance"
+    description: description || "",
+    // On conserve le texte brut dans commentaireBrut pour une future reformulation IA.
+    commentaireBrut: description || "",
     // commentaireReformule : laissé vide (reformulation IA prévue plus tard).
     submittedAt: serverTimestamp(),
     submittedBy,
@@ -70,9 +70,9 @@ export async function submitIntervention(
 export async function createCompletedIntervention({
   clientId,
   date,
-  taskTemplateId,
-  tasksDone,
-  commentaireBrut,
+  type,
+  mode,
+  description,
   submittedBy,
 }) {
   const ref = await addDoc(interventionsRef, {
@@ -82,9 +82,10 @@ export async function createCompletedIntervention({
     statut: "fait",
     source: "ponctuel",
     contractId: null,
-    taskTemplateId: taskTemplateId || null,
-    tasksDone, // [{ tache, detail }]
-    commentaireBrut: commentaireBrut || "",
+    type: type || "",
+    mode, // "sur_site" | "a_distance"
+    description: description || "",
+    commentaireBrut: description || "", // texte brut conservé pour reformulation IA future
     commentaireReformule: "",
     photos: [],
     submittedAt: serverTimestamp(),

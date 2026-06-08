@@ -7,7 +7,9 @@ import { listTechnicians } from "../../services/technicians";
 import { listTaskTemplates } from "../../services/taskTemplates";
 import { getEntreprise } from "../../services/config";
 import { formatDateFR } from "../../utils/recurrence";
+import { isNewFormat, modeLabel } from "../../utils/intervention";
 import { generateInterventionPDF } from "../../utils/pdf";
+import InterventionBody from "../../components/InterventionBody";
 import { useToast } from "../../context/ToastContext";
 import PageHeader from "../../components/admin/PageHeader";
 import Button from "../../components/ui/Button";
@@ -166,7 +168,7 @@ export default function HistoryPage() {
                       <th className="px-4 py-3 font-medium">Client</th>
                       <th className="px-4 py-3 font-medium">Technicien</th>
                       <th className="px-4 py-3 font-medium">Statut</th>
-                      <th className="px-4 py-3 font-medium">Tâches</th>
+                      <th className="px-4 py-3 font-medium">Type / Mode</th>
                       <th className="px-4 py-3 text-right font-medium">Actions</th>
                     </tr>
                   </thead>
@@ -185,7 +187,18 @@ export default function HistoryPage() {
                             <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">À faire</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-slate-500">{(it.tasksDone || []).length}</td>
+                        <td className="px-4 py-3 text-slate-500">
+                          {isNewFormat(it) ? (
+                            <>
+                              <div className="text-slate-700">{it.type || "—"}</div>
+                              <div className="text-xs text-slate-400">{modeLabel(it.mode)}</div>
+                            </>
+                          ) : (it.tasksDone || []).length ? (
+                            `${it.tasksDone.length} tâche${it.tasksDone.length > 1 ? "s" : ""}`
+                          ) : (
+                            "—"
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2">
                             <Button variant="secondary" onClick={() => setViewing(it)}>Voir</Button>
@@ -336,7 +349,6 @@ function FilterField({ label, children }) {
 }
 
 function DetailView({ intervention, client, technicien, titulaire, onPDF }) {
-  const tasks = intervention.tasksDone || [];
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 text-sm">
@@ -353,31 +365,8 @@ function DetailView({ intervention, client, technicien, titulaire, onPDF }) {
         <Info label="Statut" value={intervention.statut === "fait" ? "Réalisée" : "À faire"} />
       </div>
 
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">Tâches</h3>
-        {tasks.length === 0 ? (
-          <p className="text-sm text-slate-400">Aucune tâche renseignée.</p>
-        ) : (
-          <ul className="space-y-1.5">
-            {tasks.map((t, i) => (
-              <li key={i} className="flex gap-2 text-sm text-slate-700">
-                <span className="text-emerald-600">✓</span>
-                <div>
-                  <div>{t.tache}</div>
-                  {t.detail && <div className="text-slate-500">{t.detail}</div>}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {intervention.commentaireBrut && (
-        <div>
-          <h3 className="mb-1 text-sm font-semibold text-slate-700">Commentaire</h3>
-          <p className="whitespace-pre-wrap text-sm text-slate-700">{intervention.commentaireBrut}</p>
-        </div>
-      )}
+      {/* Contenu (gère le nouveau format type/mode/description et l'ancien tasksDone). */}
+      <InterventionBody intervention={intervention} />
 
       {intervention.statut === "fait" && (
         <div className="flex justify-end border-t border-slate-200 pt-4">
