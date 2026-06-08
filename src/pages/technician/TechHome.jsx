@@ -2,7 +2,7 @@
 //   - "À venir"  : toutes les interventions à faire (tous techniciens), triées par date.
 //   - "Passées"  : uniquement celles que CE technicien a soumises, plus récentes d'abord.
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { listUpcoming, listPastByTechnician } from "../../services/interventions";
 import { listClients } from "../../services/clients";
 import { listTechnicians } from "../../services/technicians";
@@ -11,7 +11,10 @@ import { useAuth } from "../../context/AuthContext";
 
 export default function TechHome() {
   const { session, logout } = useAuth();
-  const [tab, setTab] = useState("upcoming");
+  const navigate = useNavigate();
+  const location = useLocation();
+  // On peut arriver ici en demandant un onglet précis (ex : "past" après création).
+  const [tab, setTab] = useState(location.state?.tab === "past" ? "past" : "upcoming");
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -39,6 +42,14 @@ export default function TechHome() {
       </div>
 
       <main className="mx-auto max-w-md p-3">
+        {/* Action principale : créer une intervention faite sur le moment */}
+        <button
+          onClick={() => navigate("/tech/nouvelle")}
+          className="mb-4 w-full rounded-2xl bg-slate-800 py-4 text-base font-semibold text-white shadow-sm active:bg-slate-700"
+        >
+          + Nouvelle intervention
+        </button>
+
         {tab === "upcoming" ? (
           <UpcomingList />
         ) : (

@@ -65,6 +65,35 @@ export async function submitIntervention(
   });
 }
 
+// Création d'une intervention DÉJÀ RÉALISÉE (technicien qui fait + remplit d'un coup).
+// Créée directement au statut "fait", source "ponctuel", avec horodatage et auteur.
+export async function createCompletedIntervention({
+  clientId,
+  date,
+  taskTemplateId,
+  tasksDone,
+  commentaireBrut,
+  submittedBy,
+}) {
+  const ref = await addDoc(interventionsRef, {
+    clientId,
+    technicianId: null, // pas de titulaire : le technicien l'a faite lui-même
+    date,
+    statut: "fait",
+    source: "ponctuel",
+    contractId: null,
+    taskTemplateId: taskTemplateId || null,
+    tasksDone, // [{ tache, detail }]
+    commentaireBrut: commentaireBrut || "",
+    commentaireReformule: "",
+    photos: [],
+    submittedAt: serverTimestamp(),
+    submittedBy,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
 // Création d'une intervention (utilisé par le seed de test ; la génération
 // automatique via les contrats viendra en Phase 5).
 export async function createIntervention(data) {

@@ -15,6 +15,7 @@ import HistoryPage from "./pages/admin/HistoryPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import TechHome from "./pages/technician/TechHome";
 import InterventionForm from "./pages/technician/InterventionForm";
+import NewInterventionForm from "./pages/technician/NewInterventionForm";
 
 function App() {
   // Au tout premier lancement, on pré-remplit la base avec les modèles par défaut.
@@ -56,6 +57,14 @@ function App() {
               element={
                 <ProtectedRoute role="technician">
                   <TechHome />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tech/nouvelle"
+              element={
+                <ProtectedRoute role="technician">
+                  <NewInterventionForm />
                 </ProtectedRoute>
               }
             />
