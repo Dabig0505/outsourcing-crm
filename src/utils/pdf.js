@@ -4,6 +4,32 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatDateFR } from "./recurrence";
 
+// Charge le logo (public/logo.png) et le convertit en base64 via un canvas.
+// Fiable en production (même origine que l'app, pas de Firebase Storage requis).
+// Le résultat est mis en cache pour ne le charger qu'une fois.
+let logoPromise = null;
+function getLogoDataURL() {
+  if (!logoPromise) {
+    logoPromise = new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          canvas.getContext("2d").drawImage(img, 0, 0);
+          resolve(canvas.toDataURL("image/png"));
+        } catch {
+          resolve(null); // en cas de souci, on génère le PDF sans logo
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = "/logo.png";
+    });
+  }
+  return logoPromise;
+}
+
 // Formate un Timestamp Firestore (ou Date) en date+heure lisible.
 function formatTimestamp(ts) {
   if (!ts) return "";
@@ -16,7 +42,7 @@ function safeName(s) {
   return (s || "fiche").replace(/[^\w\-]+/g, "_");
 }
 
-export function generateInterventionPDF({
+export async function generateInterventionPDF({
   intervention,
   client,
   technicien, // technicien ayant soumis (submittedBy)
@@ -28,25 +54,42 @@ export function generateInterventionPDF({
   const pageWidth = doc.internal.pageSize.getWidth();
   let y = margin;
 
-  // ── En-tête entreprise ──
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text(entreprise?.nom || "Outsourcing Support", margin, y);
-  y += 16;
+  // ── En-tête : logo (le nom est déjà dans l'image) + coordonnées entreprise ──
+  const logo = await getLogoDataURL();
+  const LOGO_SIZE = 120; // logo carré agrandi (~160 px de large)
+  const coords = [entreprise?.adresse, entreprise?.telephone, entreprise?.email].filter(Boolean);
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(110);
-  [entreprise?.adresse, entreprise?.telephone, entreprise?.email]
-    .filter(Boolean)
-    .forEach((line) => {
-      doc.text(String(line), margin, y);
-      y += 12;
+  if (logo) {
+    // Le nom de l'entreprise figure déjà dans le logo : on n'écrit pas le texte.
+    doc.addImage(logo, "PNG", margin, y, LOGO_SIZE, LOGO_SIZE);
+    let ty = y + 18;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(110);
+    coords.forEach((line) => {
+      doc.text(String(line), margin + LOGO_SIZE + 16, ty);
+      ty += 12;
     });
-  doc.setTextColor(0);
+    doc.setTextColor(0);
+    y = Math.max(y + LOGO_SIZE, ty) + 8;
+  } else {
+    // Repli si le logo ne se charge pas : on affiche le nom + coordonnées.
+    let ty = y + 14;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(entreprise?.nom || "Outsourcing Support", margin, ty);
+    ty += 16;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(110);
+    coords.forEach((line) => {
+      doc.text(String(line), margin, ty);
+      ty += 12;
+    });
+    doc.setTextColor(0);
+    y = ty + 8;
+  }
 
-  // Ligne de séparation
-  y += 6;
   doc.setDrawColor(220);
   doc.line(margin, y, pageWidth - margin, y);
   y += 26;

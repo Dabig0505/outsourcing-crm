@@ -89,9 +89,9 @@ export default function HistoryPage() {
     return it.technicianId ? data.technicians[it.technicianId]?.nom || "—" : "Non défini";
   }
 
-  function downloadPDF(it) {
+  async function downloadPDF(it) {
     try {
-      generateInterventionPDF({
+      await generateInterventionPDF({
         intervention: it,
         client: data.clients[it.clientId] || null,
         technicien: data.technicians[it.submittedBy] || null,

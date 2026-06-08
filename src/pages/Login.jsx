@@ -29,7 +29,11 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-sm">
         <div className="mb-6 text-center">
-          <h1 className="text-xl font-bold text-slate-800">Outsourcing Support</h1>
+          <img
+            src="/logo.png"
+            alt="Outsourcing Support"
+            className="mx-auto mb-3 h-[270px] w-[270px] object-contain"
+          />
           <p className="text-sm text-slate-500">Gestion des interventions</p>
         </div>
         {adminConfigured ? <LoginForms /> : <AdminSetupForm />}

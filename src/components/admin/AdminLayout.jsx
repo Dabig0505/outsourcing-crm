@@ -19,9 +19,13 @@ export default function AdminLayout() {
     <div className="flex min-h-screen bg-slate-100">
       {/* Barre latérale */}
       <aside className="flex w-60 flex-col border-r border-slate-200 bg-white">
-        <div className="border-b border-slate-200 px-5 py-4">
-          <h1 className="font-bold text-slate-800">Outsourcing Support</h1>
-          <p className="text-xs text-slate-500">Espace administrateur</p>
+        <div className="border-b border-slate-200 px-5 py-5 text-center">
+          <img
+            src="/logo.png"
+            alt="Outsourcing Support"
+            className="mx-auto h-[175px] w-[175px] object-contain"
+          />
+          <p className="mt-2 text-xs text-slate-500">Espace administrateur</p>
         </div>
 
         <nav className="flex-1 space-y-1 p-3">

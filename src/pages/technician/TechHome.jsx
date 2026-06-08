@@ -19,9 +19,12 @@ export default function TechHome() {
   return (
     <div className="min-h-screen bg-slate-100">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-        <div>
-          <h1 className="text-base font-bold text-slate-800">Bonjour {session?.nom}</h1>
-          <p className="text-xs text-slate-500">Mes interventions</p>
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="Outsourcing Support" className="h-[175px] w-[175px] shrink-0 object-contain" />
+          <div>
+            <h1 className="text-base font-bold text-slate-800">Bonjour {session?.nom}</h1>
+            <p className="text-xs text-slate-500">Mes interventions</p>
+          </div>
         </div>
         <button
           onClick={logout}
