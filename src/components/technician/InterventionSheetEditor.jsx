@@ -39,6 +39,7 @@ export default function InterventionSheetEditor({
       const err = validate();
       if (err) return toast.error(err);
     }
+    if (!type) return toast.error("Choisissez le type d'intervention.");
     if (!mode) return toast.error("Choisissez le mode d'intervention.");
     if (!description.trim()) return toast.error("Décrivez l'intervention.");
 
@@ -61,7 +62,7 @@ export default function InterventionSheetEditor({
         {/* Type d'intervention */}
         <section className="rounded-2xl bg-white p-4 shadow-sm">
           <label className="mb-1 block text-sm font-medium text-slate-700">
-            Type d'intervention
+            Type d'intervention <span className="text-red-500">*</span>
           </label>
           <select
             value={type}

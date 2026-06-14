@@ -8,6 +8,7 @@ import { createCompletedIntervention } from "../../services/interventions";
 import { listClients } from "../../services/clients";
 import { listTaskTemplates } from "../../services/taskTemplates";
 import { toISODate } from "../../utils/recurrence";
+import { notifyInterventionSubmitted } from "../../services/notifications";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import InterventionSheetEditor from "../../components/technician/InterventionSheetEditor";
@@ -54,6 +55,15 @@ export default function NewInterventionForm() {
       mode,
       description,
       submittedBy: session.technicianId,
+    });
+    // Notification email (sans bloquer : la fiche est déjà enregistrée).
+    notifyInterventionSubmitted({
+      clientNom: clients.find((c) => c.id === clientId)?.nom || "",
+      date,
+      technicienNom: session.nom,
+      type,
+      mode,
+      description,
     });
     toast.success("Intervention enregistrée.");
     navigate("/tech", { replace: true, state: { tab: "past" } });
