@@ -66,7 +66,7 @@ export default function TaskTemplatesPage() {
         <Button onClick={openCreate}>+ Ajouter un modèle</Button>
       </PageHeader>
 
-      <div className="p-8">
+      <div className="p-4 lg:p-8">
         {templates === null ? (
           <p className="text-slate-500">Chargement…</p>
         ) : templates.length === 0 ? (

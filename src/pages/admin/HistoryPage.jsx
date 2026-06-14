@@ -112,13 +112,13 @@ export default function HistoryPage() {
         <Button onClick={() => setPonctuelleOpen(true)}>+ Intervention ponctuelle</Button>
       </PageHeader>
 
-      <div className="p-8">
+      <div className="p-4 lg:p-8">
         {data === null ? (
           <p className="text-slate-500">Chargement…</p>
         ) : (
           <>
-            {/* Filtres */}
-            <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
+            {/* Filtres (empilés sur mobile, en ligne sur desktop) */}
+            <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end">
               <FilterField label="Technicien">
                 <select className={inputClass} value={filters.technicianId} onChange={(e) => setFilter("technicianId", e.target.value)}>
                   <option value="">Tous</option>
@@ -160,7 +160,9 @@ export default function HistoryPage() {
                 Aucune intervention ne correspond à ces filtres.
               </div>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <>
+              {/* Desktop : tableau */}
+              <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white lg:block">
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
                     <tr>
@@ -212,6 +214,42 @@ export default function HistoryPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile : cartes */}
+              <ul className="space-y-3 lg:hidden">
+                {filtered.map((it) => (
+                  <li key={it.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-semibold text-slate-800">
+                        {data.clients[it.clientId]?.nom || "—"}
+                      </span>
+                      {it.statut === "fait" ? (
+                        <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">Réalisée</span>
+                      ) : (
+                        <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">À faire</span>
+                      )}
+                    </div>
+                    <div className="mt-2 space-y-0.5 text-sm text-slate-600">
+                      <div>📅 {formatDateFR(it.date)}</div>
+                      <div>👷 {technicienLabel(it)}</div>
+                      <div>
+                        {isNewFormat(it)
+                          ? `${it.type || "—"} · ${modeLabel(it.mode)}`
+                          : (it.tasksDone || []).length
+                          ? `${it.tasksDone.length} tâche${it.tasksDone.length > 1 ? "s" : ""}`
+                          : "—"}
+                      </div>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <Button variant="secondary" className="flex-1" onClick={() => setViewing(it)}>Voir</Button>
+                      {it.statut === "fait" && (
+                        <Button className="flex-1" onClick={() => downloadPDF(it)}>PDF</Button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              </>
             )}
           </>
         )}

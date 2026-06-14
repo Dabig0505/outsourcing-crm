@@ -62,13 +62,15 @@ export default function ClientsPage() {
         <Button onClick={openCreate}>+ Ajouter un client</Button>
       </PageHeader>
 
-      <div className="p-8">
+      <div className="p-4 lg:p-8">
         {clients === null ? (
           <p className="text-slate-500">Chargement…</p>
         ) : clients.length === 0 ? (
           <EmptyState onAdd={openCreate} />
         ) : (
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <>
+          {/* Desktop : tableau */}
+          <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white lg:block">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
                 <tr>
@@ -121,6 +123,39 @@ export default function ClientsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile : cartes */}
+          <ul className="space-y-3 lg:hidden">
+            {clients.map((c) => (
+              <li key={c.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-semibold text-slate-800">{c.nom}</span>
+                  {c.actif === false ? (
+                    <span className="shrink-0 rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-600">Archivé</span>
+                  ) : (
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">Actif</span>
+                  )}
+                </div>
+                <div className="mt-2 space-y-0.5 text-sm text-slate-600">
+                  {c.contact && <div>👤 {c.contact}</div>}
+                  {c.telephone && <div>📞 {c.telephone}</div>}
+                  {c.email && <div className="break-all">✉️ {c.email}</div>}
+                  {c.adresse && <div className="text-slate-400">📍 {c.adresse}</div>}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button variant="secondary" className="flex-1" onClick={() => openEdit(c)}>Modifier</Button>
+                  <Button
+                    variant={c.actif === false ? "secondary" : "danger"}
+                    className="flex-1"
+                    onClick={() => setConfirm(c)}
+                  >
+                    {c.actif === false ? "Réactiver" : "Archiver"}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          </>
         )}
       </div>
 
@@ -225,7 +260,7 @@ function ClientForm({ editing, onClose, onSaved }) {
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Téléphone">
             <input
               className={inputClass}

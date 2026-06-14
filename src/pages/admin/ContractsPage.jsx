@@ -127,7 +127,7 @@ export default function ContractsPage() {
         </Button>
       </PageHeader>
 
-      <div className="p-8">
+      <div className="p-4 lg:p-8">
         {data === null ? (
           <p className="text-slate-500">Chargement…</p>
         ) : noPrerequisites ? (
@@ -135,7 +135,9 @@ export default function ContractsPage() {
         ) : data.contracts.length === 0 ? (
           <EmptyState onAdd={openCreate} />
         ) : (
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <>
+          {/* Desktop : tableau */}
+          <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white lg:block">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
                 <tr>
@@ -211,6 +213,59 @@ export default function ContractsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile : cartes */}
+          <ul className="space-y-3 lg:hidden">
+            {data.contracts.map((c) => {
+              const rule = c.recurrenceRule || {};
+              return (
+                <li key={c.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-semibold text-slate-800">
+                      {maps.clients[c.clientId]?.nom || "— supprimé —"}
+                    </span>
+                    {c.actif === false ? (
+                      <span className="shrink-0 rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-600">Archivé</span>
+                    ) : (
+                      <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">Actif</span>
+                    )}
+                  </div>
+                  <div className="mt-2 space-y-0.5 text-sm text-slate-600">
+                    <div>
+                      <span className="text-slate-400">Titulaire :</span>{" "}
+                      {c.technicianId ? maps.technicians[c.technicianId]?.nom || "— supprimé —" : "Non défini"}
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Modèle :</span>{" "}
+                      {c.taskTemplateId ? maps.templates[c.taskTemplateId]?.nom || "— supprimé —" : "Aucun"}
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Jours :</span> {describeDays(rule.joursSemaine) || "—"}
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Période :</span> {formatDateFR(rule.dateDebut)} → {formatDateFR(rule.dateFin)}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {c.actif !== false && (
+                      <Button variant="ghost" onClick={() => regenerate(c)} disabled={regenId === c.id}>
+                        {regenId === c.id ? "…" : "Régénérer"}
+                      </Button>
+                    )}
+                    <Button variant="secondary" className="flex-1" onClick={() => openEdit(c)}>Modifier</Button>
+                    <Button
+                      variant={c.actif === false ? "secondary" : "danger"}
+                      className="flex-1"
+                      onClick={() => setConfirm(c)}
+                    >
+                      {c.actif === false ? "Réactiver" : "Archiver"}
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          </>
         )}
       </div>
 
@@ -419,7 +474,7 @@ function ContractForm({ editing, clients, technicians, templates, onClose, onSav
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Date de début" required error={errors.dateDebut}>
             <input type="date" className={inputClass} value={form.dateDebut} onChange={(e) => set("dateDebut", e.target.value)} />
           </Field>
